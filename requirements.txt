@@ -1,0 +1,2 @@
+
+spaCy >=3.8.3,<3.9.0 # this is due to the latincy model reqs
