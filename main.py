@@ -18,7 +18,10 @@
 
 
 '''
-This creates a serialized file of spaCy 'doc' objects for each line of the search_corpus, saving it to disk.
+This reads in the Latin corpus file and converts it to a list of spaCy doc objects, assuming the default save=False.
+If save=True, it creates a a serialized file of the spaCy 'doc' objects , saving it to disk.
+
+Note that the corpus is fixed, as is the model used.
 Only a tok2vec pipe is used because the only purpose of this file will be to support similarity calculations.
 
 * num_corpus_lines: the number of lines of the corpus to use, if -1 the whole corpus is used
@@ -26,9 +29,9 @@ Only a tok2vec pipe is used because the only purpose of this file will be to sup
 * save: whether to save to disk or return result directly
 * output_dir: the dir to save in
 * overwrite: what to do if saving and file exists
-
 '''
-def build_embeddings(num_corpus_lines=10000, n_process=1, save=True, output_dir='./embeddings', overwrite=False):
+def build_embeddings(nlp=None, corpus=None, num_corpus_lines=100, n_process=1, save=False, 
+                     output_dir='./embeddings', overwrite=False):
     import spacy
     import json
     import time
@@ -40,24 +43,27 @@ def build_embeddings(num_corpus_lines=10000, n_process=1, save=True, output_dir=
             return
 
     print(f'BUILDING AND SAVING EMBEDDINGS')
-    print('Loading latinCy model...')
-    # when we load the model, we only want the Tok2Vec pipe in the spacy pipeline
-    nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
-    print('LatinCy model loaded.')
+    if not nlp:
+        # load latincy model into memory
+        # when we load the model, we only want the Tok2Vec pipe in the spacy pipeline
+        print('No nlp model provided. Loading latinCy model...')
+        nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
+        print('LatinCy model loaded.')
 
-    print('Loading Latin corpus...')
-    with open("../latin_text_data/la.nolorem.tok.latalphabetonly.v2.json") as f:
-        full_latin_corpus = json.load(f)
-    print(f'Full corpus loaded as JSON -- train + test is {len(full_latin_corpus)} lines long')
+    if not corpus:
+        print('Loading Latin corpus...')
+        with open("../latin_text_data/la.nolorem.tok.latalphabetonly.v2.json") as f:
+            corpus = json.load(f)
+        print(f'Full corpus loaded as JSON -- train + test is {len(corpus)} lines long')
 
     # convert corpus data to proper format
     l = 'all' if num_corpus_lines == -1 else num_corpus_lines
     print(f'Converting {l} lines to SpaCy doc format (calculating embeddings)...')
     start_time = time.perf_counter()
     if num_corpus_lines==-1:
-        text = full_latin_corpus['train']       
+        text = corpus['train']       
     else:
-        text = full_latin_corpus['train'][:num_corpus_lines]
+        text = corpus['train'][:num_corpus_lines]
     # parallelizable step:
     if n_process==1:
         text_doc = [nlp.make_doc(chunk) for chunk in text]        
@@ -89,7 +95,9 @@ def build_embeddings(num_corpus_lines=10000, n_process=1, save=True, output_dir=
     else:
         return text_doc
 
-
+'''
+This returns the contents of a byte file of spaCy DocBin(s) in that format
+'''
 def load_embedding_file(file_name):
     import spacy
     print(f'LOADING SAVED EMBEDDINGS')
@@ -103,7 +111,7 @@ def load_embedding_file(file_name):
     print('Deserializing saved file...')
     doc_bin = spacy.tokens.DocBin().from_disk(file_name)
 
-    # Get the individual Doc objects
+    # return a list of docs
     return list(doc_bin.get_docs(vocab))
 
 
@@ -136,20 +144,48 @@ if __name__ == '__main__':
 
     import time
     import spacy
+    import numpy as np
+    from sklearn.metrics.pairwise import cosine_similarity
+
+    nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
 
     output_dir = './embeddings'
 
-    text_doc = build_embeddings(num_corpus_lines=-1, n_process=4, save=False, output_dir=output_dir, overwrite=False)
+    # for my laptop, 4 procs concurrently is blazing fast, and fewer slows down considerably
+    corpus_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=10000, n_process=4, 
+                                save=False, output_dir=output_dir, overwrite=False)
 
     #corpus_embeddings = load_embedding_file(output_dir)
 
-    #print(corpus_embeddings[:10])
-    
-    # get user target_phrase
-    # target_phrase = 'sum magister' #'Urbis in Monte Tarpeio'
-    # target_doc = nlp.make_doc(target_phrase)
+    # create embedding matrix
+    print(f'Creating embedding matrix for calculation...')
+    start_time = time.perf_counter()
+    corpus_list = list(corpus_embeddings)
+    doc_vectors = [doc.vector for doc in corpus_list]
+    vector_matrix = np.stack(doc_vectors)
+    end_time = time.perf_counter()
+    print(f'Creating matrix took {end_time - start_time} seconds')
 
-    # # calculate similarity scores
+    #  # get user target_phrase
+    target_phrase = 'sum magister' #'Urbis in Monte Tarpeio'
+    target_doc = nlp.make_doc(target_phrase)
+
+    # calculate distance from target to each row of corpus in one go, efficiently
+    print(f'Calculating distances for {len(corpus_list)} rows...')
+    start_time = time.perf_counter()
+    corpus_similarities = cosine_similarity(target_doc.vector.reshape(-1,1).T, vector_matrix)
+    end_time = time.perf_counter()
+    print(f'Calculation took {end_time - start_time} seconds')
+
+    # get sorted indices
+    c2 = corpus_similarities.T
+    sorted_indices = np.argsort(c2[:,0])[::-1]
+
+    # display results
+    for i in sorted_indices[:10]:
+        print(c2[i], corpus_list[i])
+
+    # # use spacy to calculate similarity scores
     # print(f'Calculating similarity scores...')
     # start_time = time.perf_counter()
     # res = []
