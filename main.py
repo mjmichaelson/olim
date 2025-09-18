@@ -17,6 +17,41 @@
 #corpus_downloader.import_corpus("lat_text_latin_library")
 
 
+def build_corpus_cache(nlp=None, num_corpus_lines=10000, overwrite=True):
+    import os
+
+    if overwrite:
+        # build list
+        corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
+                               save=False, output_dir=output_dir, overwrite=False)
+        
+        save_corpus(corpus_with_embeddings, save_as='text list', output_dir='./embeddings')
+        # build matrix
+        corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
+                               save=False, output_dir=output_dir, overwrite=False)
+        
+        save_corpus(corpus_with_embeddings, save_as='vector matrix', output_dir='./embeddings')
+    else:
+        matrix_exists = os.path.exists('corpus_embedding_matrix.npy')
+        list_exists = os.path.exists('corpus_text_list.csv')
+
+        if not list_exists:
+            # build list
+            corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
+                                save=False, output_dir=output_dir, overwrite=False)
+            
+            save_corpus(corpus_with_embeddings, save_as='text list', output_dir='./embeddings')
+        if not matrix_exists:
+            # build matrix
+            corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
+                                save=False, output_dir=output_dir, overwrite=False)
+            
+            save_corpus(corpus_with_embeddings, save_as='vector matrix', output_dir='./embeddings')        
+
+    # now we're guaranteed the files exist, so load
+    corpus_list = load_embeddings(file_path='corpus_text_list.csv', type='.csv')
+    vector_matrix = load_embeddings(file_path='corpus_embedding_matrix.npy', type='.npy')
+    return (corpus_list, vector_matrix)
 '''
 This reads in the Latin corpus file and converts it to a list of spaCy doc objects, assuming the default save=False.
 If save=True, it creates a a serialized file of the spaCy 'doc' objects , saving it to disk.
@@ -198,6 +233,23 @@ def calculate_spacy_similarity_scores_by_chunk(user_prompt_text, corpus_embeddin
 
     return res_chunk
 
+def build_list_file():
+    import csv
+    import pandas as pd
+
+    json_reader = pd.read_json("../latin_text_data/la.nolorem.tok.latalphabetonly.v2.json", lines=True, chunksize=10000)
+    all_records = []
+    for chunk in json_reader:
+        all_records.extend(chunk.to_dict('records'))
+
+    corpus_list = all_records[0]['train']
+    corpus_list.extend(all_records[0]['test'])
+
+    with open("corpus_text_list.csv", "w", newline="") as file:
+        writer = csv.writer(file)
+        for i in corpus_list:
+            writer.writerows([[i]])
+
 
 def main():
     #language_system_setup()
@@ -216,6 +268,8 @@ if __name__ == '__main__':
 
     output_dir = './embeddings'
 
+    corpus_tuple = build_corpus_cache(nlp=nlp, num_corpus_lines=-1, overwrite=False)
+
     # for my laptop, 4 procs concurrently is blazing fast, and fewer slows down considerably
     #corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=10000, n_process=4, 
     #                           save=False, output_dir=output_dir, overwrite=False)
@@ -223,8 +277,8 @@ if __name__ == '__main__':
     #save_corpus(corpus_with_embeddings, save_as='text list', output_dir='./embeddings')
     #save_corpus(corpus_with_embeddings, save_as='vector matrix', output_dir='./embeddings')
 
-    corpus_list = load_embeddings(file_path='corpus_text_list.csv', type='.csv')
-    vector_matrix = load_embeddings(file_path='corpus_embedding_matrix.npy', type='.npy')
+    corpus_list = corpus_tuple[0]
+    vector_matrix = corpus_tuple[1]
 
     # create embedding matrix
     # print(f'Creating embedding matrix for calculation...')
@@ -241,7 +295,7 @@ if __name__ == '__main__':
     #print(loaded_matrix)
 
      # get user target_phrase
-    target_phrase = 'sum magister' #'Urbis in Monte Tarpeio'
+    target_phrase = 'nomen mihi est cloelia' #'Urbis in Monte Tarpeio'
     target_doc = nlp.make_doc(target_phrase)
 
     # calculate distance from target to each row of corpus in one go, efficiently
