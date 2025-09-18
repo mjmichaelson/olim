@@ -22,10 +22,7 @@ def build_corpus_cache(nlp=None, num_corpus_lines=10000, overwrite=True):
 
     if overwrite:
         # build list
-        corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
-                               save=False, output_dir=output_dir, overwrite=False)
-        
-        save_corpus(corpus_with_embeddings, save_as='text list', output_dir='./embeddings')
+        build_list_file()
         # build matrix
         corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
                                save=False, output_dir=output_dir, overwrite=False)
@@ -37,10 +34,7 @@ def build_corpus_cache(nlp=None, num_corpus_lines=10000, overwrite=True):
 
         if not list_exists:
             # build list
-            corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
-                                save=False, output_dir=output_dir, overwrite=False)
-            
-            save_corpus(corpus_with_embeddings, save_as='text list', output_dir='./embeddings')
+            build_list_file()
         if not matrix_exists:
             # build matrix
             corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
@@ -232,6 +226,7 @@ def calculate_spacy_similarity_scores_by_chunk(user_prompt_text, corpus_embeddin
         res_chunk.append([i, doc_i.similarity(user_prompt_text_doc)])
 
     return res_chunk
+
 
 def build_list_file():
     import csv
