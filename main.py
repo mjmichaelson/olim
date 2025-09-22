@@ -17,7 +17,7 @@
 #corpus_downloader.import_corpus("lat_text_latin_library")
 
 
-def build_corpus_cache(nlp=None, num_corpus_lines=10000, overwrite=True):
+def build_corpus(nlp=None, num_corpus_lines=10000, overwrite=True):
     import os
 
     if overwrite:
@@ -183,7 +183,7 @@ def load_embeddings(file_path, type):
         with open('corpus_text_list.csv', 'r', newline='') as file:
             reader = csv.reader(file)
             for row in reader:
-                res.append(row)
+                res.append(row[0])
     elif type == 'docbin':
         res = load_docbin_embedding_file(file_path)
     return res
@@ -228,11 +228,11 @@ def calculate_spacy_similarity_scores_by_chunk(user_prompt_text, corpus_embeddin
     return res_chunk
 
 
-def build_list_file():
+def build_list_file(read_chunk_size=10000):
     import csv
     import pandas as pd
 
-    json_reader = pd.read_json("../latin_text_data/la.nolorem.tok.latalphabetonly.v2.json", lines=True, chunksize=10000)
+    json_reader = pd.read_json("../latin_text_data/la.nolorem.tok.latalphabetonly.v2.json", lines=True, chunksize=read_chunk_size)
     all_records = []
     for chunk in json_reader:
         all_records.extend(chunk.to_dict('records'))
@@ -242,8 +242,16 @@ def build_list_file():
 
     with open("corpus_text_list.csv", "w", newline="") as file:
         writer = csv.writer(file)
-        for i in corpus_list:
-            writer.writerows([[i]])
+        for row in corpus_list:
+            writer.writerow([row])
+
+def batch_generator_to_list(generator, batch_size):
+    import itertools
+    while True:
+        batch = list(itertools.islice(generator, batch_size))
+        if not batch:
+            break
+        yield batch
 
 
 def main():
@@ -263,7 +271,7 @@ if __name__ == '__main__':
 
     output_dir = './embeddings'
 
-    corpus_tuple = build_corpus_cache(nlp=nlp, num_corpus_lines=-1, overwrite=False)
+    corpus_tuple = build_corpus(nlp=nlp, num_corpus_lines=-1, overwrite=False)
 
     # for my laptop, 4 procs concurrently is blazing fast, and fewer slows down considerably
     #corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=10000, n_process=4, 
