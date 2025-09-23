@@ -17,6 +17,44 @@
 #corpus_downloader.import_corpus("lat_text_latin_library")
 
 
+def test():
+    import json
+    import time
+    import os
+    import spacy
+    import numpy as np
+    from sklearn.metrics.pairwise import cosine_similarity
+
+    nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
+    text_doc_generator = nlp.pipe(corpus_list, n_process=4)
+
+    with open("test.csv", "w", newline="") as file:
+        writer = csv.writer(file)
+        for doc in text_doc_generator_ltd:
+            writer.writerow(doc.vector)
+
+
+    filename = 'large_data.npy'
+    shape = (1000000, 300)  # Example: 1 million rows, 10 columns
+    dtype = np.float32
+
+    # Create a new memory-mapped array
+    # 'w+' mode creates a new file or truncates an existing one
+    # 'r+' mode opens an existing file for reading and writing
+    mmap_array = np.memmap(filename, dtype=dtype, mode='w+', shape=shape)
+
+    # Stream data in chunks
+    i = 0
+    for doc in text_doc_generator_ltd:  # Process 1 row at a time
+        mmap_array[i:i+1] = doc.vector
+        i += 1
+
+    # Ensure all changes are written to disk
+    mmap_array.flush()
+
+    loaded_mmap_array = np.memmap('large_data.npy', dtype=dtype, mode='r', shape=shape)
+
+
 def build_corpus(nlp=None, num_corpus_lines=10000, overwrite=True):
     import os
 
@@ -244,6 +282,27 @@ def build_list_file(read_chunk_size=10000):
         writer = csv.writer(file)
         for row in corpus_list:
             writer.writerow([row])
+
+
+def build_vector_matrix_file(filename, doc_generator, corpus_length):
+    shape = (corpus_length, 300)  # Example: 1 million rows, 10 columns
+    dtype = np.float32
+
+    # create a new memory-mapped array
+    mmap_array = np.memmap(filename, dtype=dtype, mode='w+', shape=shape)
+
+    # stream data one vector at a time
+    i = 0
+    for doc in doc_generator: 
+        mmap_array[i:i+1] = doc.vector
+        i += 1
+
+    # write changes to disk
+    mmap_array.flush()
+
+def read_vector_matrix_file(filename, shape):
+    return np.memmap(filename, dtype=np.float32, mode='r', shape=shape)
+
 
 def batch_generator_to_list(generator, batch_size):
     import itertools
