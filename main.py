@@ -54,6 +54,15 @@ def test():
 
     loaded_mmap_array = np.memmap('large_data.npy', dtype=dtype, mode='r', shape=shape)
 
+    target = target_doc.vector.reshape(1,-1)
+    top_list = [0]
+    for v in vector_matrix[:10000]:
+        cur = cosine_similarity(target, np.array(v).reshape(1,-1))
+        if cur > top_list[-1]:
+            top_list.append(cur)
+            top_list.sort(reverse=True)
+            top_list = top_list[:10]
+
 
 def build_corpus(nlp=None, num_corpus_lines=10000, overwrite=True):
     import os
@@ -313,6 +322,24 @@ def batch_generator_to_list(generator, batch_size):
         yield batch
 
 
+def slice_vector_matrix(mat, num_slices):
+    if num_slices < 2:
+        print('You must select at least 2 slices.')
+        return
+    
+    res = []
+    slice_l = len(mat)//num_slices
+    start = 0
+    end = slice_l
+    while end <= len(mat):
+        res.append(mat[start:end])
+        start += slice_l
+        end += slice_l
+
+    return res
+
+
+
 def main():
     #language_system_setup()
     pass
@@ -340,7 +367,7 @@ if __name__ == '__main__':
     #save_corpus(corpus_with_embeddings, save_as='vector matrix', output_dir='./embeddings')
 
     corpus_list = corpus_tuple[0]
-    vector_matrix = corpus_tuple[1]
+    vector_matrix = read_vector_matrix_file(filename='large_data.npy',shape=(10366696, 300)) #corpus_tuple[1]
 
     # create embedding matrix
     # print(f'Creating embedding matrix for calculation...')
@@ -363,12 +390,16 @@ if __name__ == '__main__':
     # calculate distance from target to each row of corpus in one go, efficiently
     print(f'Calculating distances for {len(corpus_list)} rows...')
     start_time = time.perf_counter()
-    corpus_similarities = cosine_similarity(target_doc.vector.reshape(1,-1), vector_matrix)
+    sim_list = []
+    for slice in slice_vector_matrix(vector_matrix, 12):
+        sim_list.extend(cosine_similarity(target_doc.vector.reshape(1,-1), slice))
+    corpus_similarities = np.concatenate(sim_list)
+    #corpus_similarities = cosine_similarity(target_doc.vector.reshape(1,-1), vector_matrix)
     end_time = time.perf_counter()
     print(f'Calculation took {end_time - start_time} seconds')
 
     # get sorted indices
-    c2 = corpus_similarities.T
+    c2 = corpus_similarities.reshape(-1,1)
     sorted_indices = np.argsort(c2[:,0])[::-1]
 
     # display results
