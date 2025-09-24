@@ -17,6 +17,82 @@
 #corpus_downloader.import_corpus("lat_text_latin_library")
 
 
+def test():
+    import json
+    import time
+    import os
+    import spacy
+    import numpy as np
+    from sklearn.metrics.pairwise import cosine_similarity
+
+    nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
+    text_doc_generator = nlp.pipe(corpus_list, n_process=4)
+
+    with open("test.csv", "w", newline="") as file:
+        writer = csv.writer(file)
+        for doc in text_doc_generator_ltd:
+            writer.writerow(doc.vector)
+
+
+    filename = 'large_data.npy'
+    shape = (1000000, 300)  # Example: 1 million rows, 10 columns
+    dtype = np.float32
+
+    # Create a new memory-mapped array
+    # 'w+' mode creates a new file or truncates an existing one
+    # 'r+' mode opens an existing file for reading and writing
+    mmap_array = np.memmap(filename, dtype=dtype, mode='w+', shape=shape)
+
+    # Stream data in chunks
+    i = 0
+    for doc in text_doc_generator_ltd:  # Process 1 row at a time
+        mmap_array[i:i+1] = doc.vector
+        i += 1
+
+    # Ensure all changes are written to disk
+    mmap_array.flush()
+
+    loaded_mmap_array = np.memmap('large_data.npy', dtype=dtype, mode='r', shape=shape)
+
+    target = target_doc.vector.reshape(1,-1)
+    top_list = [0]
+    for v in vector_matrix[:10000]:
+        cur = cosine_similarity(target, np.array(v).reshape(1,-1))
+        if cur > top_list[-1]:
+            top_list.append(cur)
+            top_list.sort(reverse=True)
+            top_list = top_list[:10]
+
+
+def build_corpus(nlp=None, num_corpus_lines=10000, overwrite=True):
+    import os
+
+    if overwrite:
+        # build list
+        build_list_file()
+        # build matrix
+        corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
+                               save=False, output_dir=output_dir, overwrite=False)
+        
+        save_corpus(corpus_with_embeddings, save_as='vector matrix', output_dir='./embeddings')
+    else:
+        matrix_exists = os.path.exists('corpus_embedding_matrix.npy')
+        list_exists = os.path.exists('corpus_text_list.csv')
+
+        if not list_exists:
+            # build list
+            build_list_file()
+        if not matrix_exists:
+            # build matrix
+            corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
+                                save=False, output_dir=output_dir, overwrite=False)
+            
+            save_corpus(corpus_with_embeddings, save_as='vector matrix', output_dir='./embeddings')        
+
+    # now we're guaranteed the files exist, so load
+    corpus_list = load_embeddings(file_path='corpus_text_list.csv', type='.csv')
+    vector_matrix = load_embeddings(file_path='corpus_embedding_matrix.npy', type='.npy')
+    return (corpus_list, vector_matrix)
 '''
 This reads in the Latin corpus file and converts it to a list of spaCy doc objects, assuming the default save=False.
 If save=True, it creates a a serialized file of the spaCy 'doc' objects , saving it to disk.
@@ -94,11 +170,76 @@ def build_embeddings(nlp=None, corpus=None, num_corpus_lines=100, n_process=1, s
         print(f"File of docs saved to: {output_dir}")
     else:
         return text_doc
+    
+'''
+Options for saving:
+    * if text list, then it saves as a .csv
+    * if vector matrix, then it saves as .npy
+    * if docbin, then it saves as docbin (.spacy)
+'''
+def save_corpus(embedding_generator, save_as='list', output_dir='./embeddings'):
+    match save_as:
+        case 'text list':
+            import csv
+            # create embedding matrix
+            print(f'Creating text list...')
+            start_time = time.perf_counter()
+            corpus_list = list(embedding_generator)
+            doc_text_list = [doc.text for doc in corpus_list]
+            end_time = time.perf_counter()
+            print(f'Creating text list took {end_time - start_time} seconds')
+            print(f'Writing text list to disk...')
+            with open("corpus_text_list.csv", "w", newline="") as file:
+                writer = csv.writer(file)
+                for i in doc_text_list:
+                    writer.writerows([[i]])
+        case 'vector matrix':
+            # create embedding matrix
+            print(f'Creating embedding matrix for calculation...')
+            start_time = time.perf_counter()
+            corpus_list = list(embedding_generator)
+            doc_vectors = [doc.vector for doc in corpus_list]
+            vector_matrix = np.stack(doc_vectors)
+            end_time = time.perf_counter()
+            print(f'Creating matrix took {end_time - start_time} seconds')
+            print(f'Writing embedding matrix to disk...')
+            np.save('corpus_embedding_matrix.npy', vector_matrix)
+        case 'docbin':
+            # collect the docs into one object for the write
+            print(f'Collecting Docs into one DocBin...')
+            print(f'/-',end='')
+            start_time = time.perf_counter()
+            doc_bin = spacy.tokens.DocBin()
+            for d in embedding_generator:
+                doc_bin.add(d)
+            end_time = time.perf_counter()
+            print(f'/')
+            print(f'Collection took {end_time - start_time} seconds')
+
+            # Save the doc objects to the specified directory
+            print(f'Writing DocBin to disk...')
+            doc_bin.to_disk(output_dir)
+            print(f"File of docs saved to: {output_dir}")
+
+def load_embeddings(file_path, type):
+    if type == '.npy':
+        res = np.load(file_path)
+    elif type == '.csv':
+        import csv
+        res = []
+        with open('corpus_text_list.csv', 'r', newline='') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                res.append(row[0])
+    elif type == 'docbin':
+        res = load_docbin_embedding_file(file_path)
+    return res
+
 
 '''
 This returns the contents of a byte file of spaCy DocBin(s) in that format
 '''
-def load_embedding_file(file_name):
+def load_docbin_embedding_file(file_name):
     import spacy
     print(f'LOADING SAVED EMBEDDINGS')
     print('Loading latinCy model...')
@@ -115,7 +256,7 @@ def load_embedding_file(file_name):
     return list(doc_bin.get_docs(vocab))
 
 
-def calculate_similarity_scores_by_chunk(user_prompt_text, corpus_embeddings_chunk, nlp=None):
+def calculate_spacy_similarity_scores_by_chunk(user_prompt_text, corpus_embeddings_chunk, nlp=None):
     # import dependencies
     import spacy
     
@@ -132,6 +273,71 @@ def calculate_similarity_scores_by_chunk(user_prompt_text, corpus_embeddings_chu
         res_chunk.append([i, doc_i.similarity(user_prompt_text_doc)])
 
     return res_chunk
+
+
+def build_list_file(read_chunk_size=10000):
+    import csv
+    import pandas as pd
+
+    json_reader = pd.read_json("../latin_text_data/la.nolorem.tok.latalphabetonly.v2.json", lines=True, chunksize=read_chunk_size)
+    all_records = []
+    for chunk in json_reader:
+        all_records.extend(chunk.to_dict('records'))
+
+    corpus_list = all_records[0]['train']
+    corpus_list.extend(all_records[0]['test'])
+
+    with open("corpus_text_list.csv", "w", newline="") as file:
+        writer = csv.writer(file)
+        for row in corpus_list:
+            writer.writerow([row])
+
+
+def build_vector_matrix_file(filename, doc_generator, corpus_length):
+    shape = (corpus_length, 300)  # Example: 1 million rows, 10 columns
+    dtype = np.float32
+
+    # create a new memory-mapped array
+    mmap_array = np.memmap(filename, dtype=dtype, mode='w+', shape=shape)
+
+    # stream data one vector at a time
+    i = 0
+    for doc in doc_generator: 
+        mmap_array[i:i+1] = doc.vector
+        i += 1
+
+    # write changes to disk
+    mmap_array.flush()
+
+def read_vector_matrix_file(filename, shape):
+    return np.memmap(filename, dtype=np.float32, mode='r', shape=shape)
+
+
+def batch_generator_to_list(generator, batch_size):
+    import itertools
+    while True:
+        batch = list(itertools.islice(generator, batch_size))
+        if not batch:
+            break
+        yield batch
+
+
+def slice_vector_matrix(mat, num_slices):
+    if num_slices < 2:
+        print('You must select at least 2 slices.')
+        return
+    
+    res = []
+    slice_l = len(mat)//num_slices
+    start = 0
+    end = slice_l
+    while end <= len(mat):
+        res.append(mat[start:end])
+        start += slice_l
+        end += slice_l
+
+    return res
+
 
 
 def main():
@@ -151,57 +357,51 @@ if __name__ == '__main__':
 
     output_dir = './embeddings'
 
-    # for my laptop, 4 procs concurrently is blazing fast, and fewer slows down considerably
-    corpus_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=10000, n_process=4, 
-                                save=False, output_dir=output_dir, overwrite=False)
+    corpus_tuple = build_corpus(nlp=nlp, num_corpus_lines=-1, overwrite=False)
 
-    #corpus_embeddings = load_embedding_file(output_dir)
+    # for my laptop, 4 procs concurrently is blazing fast, and fewer slows down considerably
+    #corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=10000, n_process=4, 
+    #                           save=False, output_dir=output_dir, overwrite=False)
+
+    #save_corpus(corpus_with_embeddings, save_as='text list', output_dir='./embeddings')
+    #save_corpus(corpus_with_embeddings, save_as='vector matrix', output_dir='./embeddings')
+
+    corpus_list = corpus_tuple[0]
+    vector_matrix = read_vector_matrix_file(filename='large_data.npy',shape=(10366696, 300)) #corpus_tuple[1]
 
     # create embedding matrix
-    print(f'Creating embedding matrix for calculation...')
-    start_time = time.perf_counter()
-    corpus_list = list(corpus_embeddings)
-    doc_vectors = [doc.vector for doc in corpus_list]
-    vector_matrix = np.stack(doc_vectors)
-    end_time = time.perf_counter()
-    print(f'Creating matrix took {end_time - start_time} seconds')
+    # print(f'Creating embedding matrix for calculation...')
+    # start_time = time.perf_counter()
+    # corpus_list = list(corpus_embeddings)
+    # doc_vectors = [doc.vector for doc in corpus_list]
+    # vector_matrix = np.stack(doc_vectors)
+    # end_time = time.perf_counter()
+    # print(f'Creating matrix took {end_time - start_time} seconds')
 
-    #  # get user target_phrase
-    target_phrase = 'sum magister' #'Urbis in Monte Tarpeio'
+    # np.save('corpus_embedding_matrix.npy', vector_matrix)
+
+    #loaded_matrix = np.load('corpus_embedding_matrix.npy')
+    #print(loaded_matrix)
+
+     # get user target_phrase
+    target_phrase = 'nomen mihi est cloelia' #'Urbis in Monte Tarpeio'
     target_doc = nlp.make_doc(target_phrase)
 
     # calculate distance from target to each row of corpus in one go, efficiently
     print(f'Calculating distances for {len(corpus_list)} rows...')
     start_time = time.perf_counter()
-    corpus_similarities = cosine_similarity(target_doc.vector.reshape(-1,1).T, vector_matrix)
+    sim_list = []
+    for slice in slice_vector_matrix(vector_matrix, 12):
+        sim_list.extend(cosine_similarity(target_doc.vector.reshape(1,-1), slice))
+    corpus_similarities = np.concatenate(sim_list)
+    #corpus_similarities = cosine_similarity(target_doc.vector.reshape(1,-1), vector_matrix)
     end_time = time.perf_counter()
     print(f'Calculation took {end_time - start_time} seconds')
 
     # get sorted indices
-    c2 = corpus_similarities.T
+    c2 = corpus_similarities.reshape(-1,1)
     sorted_indices = np.argsort(c2[:,0])[::-1]
 
     # display results
     for i in sorted_indices[:10]:
         print(c2[i], corpus_list[i])
-
-    # # use spacy to calculate similarity scores
-    # print(f'Calculating similarity scores...')
-    # start_time = time.perf_counter()
-    # res = []
-    # for i, doc_i in enumerate(text_doc):
-    #     res.append([i, doc_i.similarity(target_doc)])
-    # end_time = time.perf_counter()
-    # print(f'Similarity scores took {end_time - start_time} seconds')
-
-    # # sorted top 10 results
-    # print('Sorting results...')
-    # res = sorted(res, key=lambda elem: elem[1], reverse=True)[:10]
-
-    # # find original top 10 phrases from corpus
-    # print('Finding originals...')
-    # for i, r in enumerate(res):
-    #     res[i].append(text[res[i][0]])
-
-    # for i in range(len(res)):
-    #     print(f'{res[i]}')
