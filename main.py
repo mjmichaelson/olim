@@ -1,80 +1,38 @@
+'''
+Olim, by Matt Michaelson
 
-# Latin model courtesy of Patrick J. Burns, see https://spacy.io/universe/project/latincy and https://huggingface.co/latincy
-# LatinCy paper here: https://arxiv.org/pdf/2305.04365v1
+LATIN MODEL
+Latin model courtesy of Patrick J. Burns, see https://spacy.io/universe/project/latincy and https://huggingface.co/latincy
+LatinCy paper here: https://arxiv.org/pdf/2305.04365v1
 
-#!pip install https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-any-py3-none-any.whl
+!pip install https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-any-py3-none-any.whl
 
-# Corpus is CC100 Latin https://arxiv.org/pdf/1911.02116 , Latin-only dataset here: https://huggingface.co/datasets/pstroe/cc100-latin/blob/main/README.md
+LATIN CORPUS
+Corpus is CC100 Latin https://arxiv.org/pdf/1911.02116 , Latin-only dataset here: https://huggingface.co/datasets/pstroe/cc100-latin/blob/main/README.md
 
-#!curl -O -L https://huggingface.co/datasets/pstroe/cc100-latin/resolve/main/la.nolorem.tok.latalphabetonly.v2.json
+!curl -O -L https://huggingface.co/datasets/pstroe/cc100-latin/resolve/main/la.nolorem.tok.latalphabetonly.v2.json
 
-# DEPRECATED Corpora courtesy of The Classical Language Toolkit (CLTK)
-# https://github.com/cltk/tutorials/blob/master/2%20Import%20corpora.ipynb
-# See https://github.com/cltk for all official corpora
-#from cltk.data.fetch import FetchCorpus
-#corpus_downloader = FetchCorpus(language="lat")
-#corpus_downloader.list_corpora
-#corpus_downloader.import_corpus("lat_text_latin_library")
-
-
-def test():
-    import json
-    import time
-    import os
-    import spacy
-    import numpy as np
-    from sklearn.metrics.pairwise import cosine_similarity
-
-    nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
-    text_doc_generator = nlp.pipe(corpus_list, n_process=4)
-
-    with open("test.csv", "w", newline="") as file:
-        writer = csv.writer(file)
-        for doc in text_doc_generator_ltd:
-            writer.writerow(doc.vector)
+DEPRECATED Previously used corpora courtesy of The Classical Language Toolkit (CLTK)
+https://github.com/cltk/tutorials/blob/master/2%20Import%20corpora.ipynb
+See https://github.com/cltk for all official corpora
+from cltk.data.fetch import FetchCorpus
+corpus_downloader = FetchCorpus(language="lat")
+corpus_downloader.list_corpora
+corpus_downloader.import_corpus("lat_text_latin_library")
+'''
 
 
-    filename = 'large_data.npy'
-    shape = (1000000, 300)  # Example: 1 million rows, 10 columns
-    dtype = np.float32
-
-    # Create a new memory-mapped array
-    # 'w+' mode creates a new file or truncates an existing one
-    # 'r+' mode opens an existing file for reading and writing
-    mmap_array = np.memmap(filename, dtype=dtype, mode='w+', shape=shape)
-
-    # Stream data in chunks
-    i = 0
-    for doc in text_doc_generator_ltd:  # Process 1 row at a time
-        mmap_array[i:i+1] = doc.vector
-        i += 1
-
-    # Ensure all changes are written to disk
-    mmap_array.flush()
-
-    loaded_mmap_array = np.memmap('large_data.npy', dtype=dtype, mode='r', shape=shape)
-
-    target = target_doc.vector.reshape(1,-1)
-    top_list = [0]
-    for v in vector_matrix[:10000]:
-        cur = cosine_similarity(target, np.array(v).reshape(1,-1))
-        if cur > top_list[-1]:
-            top_list.append(cur)
-            top_list.sort(reverse=True)
-            top_list = top_list[:10]
-
-
-def build_corpus(nlp=None, num_corpus_lines=10000, overwrite=True):
+def build_corpus(nlp=None, num_corpus_lines=-1, overwrite=False):
     import os
 
     if overwrite:
         # build list
         build_list_file()
         # build matrix
-        corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
-                               save=False, output_dir=output_dir, overwrite=False)
+        embedding_generator = build_embedding_generator(nlp=nlp, num_corpus_lines=num_corpus_lines, n_process=4)
         
-        save_corpus(corpus_with_embeddings, save_as='vector matrix', output_dir='./embeddings')
+        build_vector_matrix_file(filename='corpus_embedding_matrix.npy', doc_generator=embedding_generator, 
+                                     corpus_length=10366692)
     else:
         matrix_exists = os.path.exists('corpus_embedding_matrix.npy')
         list_exists = os.path.exists('corpus_text_list.csv')
@@ -84,41 +42,28 @@ def build_corpus(nlp=None, num_corpus_lines=10000, overwrite=True):
             build_list_file()
         if not matrix_exists:
             # build matrix
-            corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=num_corpus_lines, n_process=4, 
-                                save=False, output_dir=output_dir, overwrite=False)
+            embedding_generator = build_embedding_generator(nlp=nlp, num_corpus_lines=num_corpus_lines, n_process=4)
             
-            save_corpus(corpus_with_embeddings, save_as='vector matrix', output_dir='./embeddings')        
+            build_vector_matrix_file(filename='corpus_embedding_matrix.npy', doc_generator=embedding_generator, 
+                                     corpus_length=10366692)
+    return
 
-    # now we're guaranteed the files exist, so load
-    corpus_list = load_embeddings(file_path='corpus_text_list.csv', type='.csv')
-    vector_matrix = load_embeddings(file_path='corpus_embedding_matrix.npy', type='.npy')
-    return (corpus_list, vector_matrix)
+
 '''
-This reads in the Latin corpus file and converts it to a list of spaCy doc objects, assuming the default save=False.
-If save=True, it creates a a serialized file of the spaCy 'doc' objects , saving it to disk.
+This reads in the Latin corpus file and converts it to a generator of spaCy doc objects.
 
 Note that the corpus is fixed, as is the model used.
 Only a tok2vec pipe is used because the only purpose of this file will be to support similarity calculations.
 
 * num_corpus_lines: the number of lines of the corpus to use, if -1 the whole corpus is used
 * n_process: number of procs to parallelize the conversion
-* save: whether to save to disk or return result directly
-* output_dir: the dir to save in
-* overwrite: what to do if saving and file exists
 '''
-def build_embeddings(nlp=None, corpus=None, num_corpus_lines=100, n_process=1, save=False, 
-                     output_dir='./embeddings', overwrite=False):
+def build_embedding_generator(nlp=None, num_corpus_lines=100, n_process=1):
     import spacy
     import json
     import time
-    import os
 
-    if os.path.exists(output_dir):
-        if save and not overwrite:
-            print(f'Not building and saving embeddings. File at output dir already exists and \'overwrite\' is set to False')
-            return
-
-    print(f'BUILDING AND SAVING EMBEDDINGS')
+    print(f'BUILDING EMBEDDING GENERATOR')
     if not nlp:
         # load latincy model into memory
         # when we load the model, we only want the Tok2Vec pipe in the spacy pipeline
@@ -126,11 +71,11 @@ def build_embeddings(nlp=None, corpus=None, num_corpus_lines=100, n_process=1, s
         nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
         print('LatinCy model loaded.')
 
-    if not corpus:
-        print('Loading Latin corpus...')
-        with open("../latin_text_data/la.nolorem.tok.latalphabetonly.v2.json") as f:
-            corpus = json.load(f)
-        print(f'Full corpus loaded as JSON -- train + test is {len(corpus)} lines long')
+    print('Loading Latin corpus...')
+    with open("../latin_text_data/la.nolorem.tok.latalphabetonly.v2.json") as f:
+        corpus = json.load(f)
+    l = len(corpus['train']) + len(corpus['test'])
+    print(f'Full corpus loaded as JSON -- train + test is {l} lines long')
 
     # convert corpus data to proper format
     l = 'all' if num_corpus_lines == -1 else num_corpus_lines
@@ -148,132 +93,7 @@ def build_embeddings(nlp=None, corpus=None, num_corpus_lines=100, n_process=1, s
     end_time = time.perf_counter()
     print(f'Conversion took {end_time - start_time} seconds')
 
-    if save:
-        # collect the docs into one object for the write
-        print(f'Collecting {num_corpus_lines} Docs into one DocBin...')
-        print(f'/-',end='')
-        start_time = time.perf_counter()
-        doc_bin = spacy.tokens.DocBin()
-        i=0
-        for d in text_doc:
-            doc_bin.add(d)
-            if i % (num_corpus_lines//10) == 0:
-                print('-',end='')
-            i += 1
-        end_time = time.perf_counter()
-        print(f'/')
-        print(f'Collection took {end_time - start_time} seconds')
-
-        # Save the doc objects to the specified directory
-        print(f'Writing DocBin to disk...')
-        doc_bin.to_disk(output_dir)
-        print(f"File of docs saved to: {output_dir}")
-    else:
-        return text_doc
-    
-'''
-Options for saving:
-    * if text list, then it saves as a .csv
-    * if vector matrix, then it saves as .npy
-    * if docbin, then it saves as docbin (.spacy)
-'''
-def save_corpus(embedding_generator, save_as='list', output_dir='./embeddings'):
-    match save_as:
-        case 'text list':
-            import csv
-            # create embedding matrix
-            print(f'Creating text list...')
-            start_time = time.perf_counter()
-            corpus_list = list(embedding_generator)
-            doc_text_list = [doc.text for doc in corpus_list]
-            end_time = time.perf_counter()
-            print(f'Creating text list took {end_time - start_time} seconds')
-            print(f'Writing text list to disk...')
-            with open("corpus_text_list.csv", "w", newline="") as file:
-                writer = csv.writer(file)
-                for i in doc_text_list:
-                    writer.writerows([[i]])
-        case 'vector matrix':
-            # create embedding matrix
-            print(f'Creating embedding matrix for calculation...')
-            start_time = time.perf_counter()
-            corpus_list = list(embedding_generator)
-            doc_vectors = [doc.vector for doc in corpus_list]
-            vector_matrix = np.stack(doc_vectors)
-            end_time = time.perf_counter()
-            print(f'Creating matrix took {end_time - start_time} seconds')
-            print(f'Writing embedding matrix to disk...')
-            np.save('corpus_embedding_matrix.npy', vector_matrix)
-        case 'docbin':
-            # collect the docs into one object for the write
-            print(f'Collecting Docs into one DocBin...')
-            print(f'/-',end='')
-            start_time = time.perf_counter()
-            doc_bin = spacy.tokens.DocBin()
-            for d in embedding_generator:
-                doc_bin.add(d)
-            end_time = time.perf_counter()
-            print(f'/')
-            print(f'Collection took {end_time - start_time} seconds')
-
-            # Save the doc objects to the specified directory
-            print(f'Writing DocBin to disk...')
-            doc_bin.to_disk(output_dir)
-            print(f"File of docs saved to: {output_dir}")
-
-def load_embeddings(file_path, type):
-    if type == '.npy':
-        res = np.load(file_path)
-    elif type == '.csv':
-        import csv
-        res = []
-        with open('corpus_text_list.csv', 'r', newline='') as file:
-            reader = csv.reader(file)
-            for row in reader:
-                res.append(row[0])
-    elif type == 'docbin':
-        res = load_docbin_embedding_file(file_path)
-    return res
-
-
-'''
-This returns the contents of a byte file of spaCy DocBin(s) in that format
-'''
-def load_docbin_embedding_file(file_name):
-    import spacy
-    print(f'LOADING SAVED EMBEDDINGS')
-    print('Loading latinCy model...')
-    # when we load the model, we only want the Tok2Vec pipe in the spacy pipeline
-    nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
-    print('LatinCy model loaded.')
-    vocab = nlp.vocab
-
-    # Deserialize the DocBin
-    print('Deserializing saved file...')
-    doc_bin = spacy.tokens.DocBin().from_disk(file_name)
-
-    # return a list of docs
-    return list(doc_bin.get_docs(vocab))
-
-
-def calculate_spacy_similarity_scores_by_chunk(user_prompt_text, corpus_embeddings_chunk, nlp=None):
-    # import dependencies
-    import spacy
-    
-    if not nlp:
-        # load latincy model into memory
-        nlp = spacy.load("la_core_web_lg")
-    
-    # get embedding for user prompt
-    user_prompt_text_doc = nlp.make_doc(user_prompt_text)
-
-    # iterate over everything in the chunk to get similarities
-    res_chunk = []
-    for i, doc_i in enumerate(corpus_embeddings_chunk):
-        res_chunk.append([i, doc_i.similarity(user_prompt_text_doc)])
-
-    return res_chunk
-
+    return text_doc
 
 def build_list_file(read_chunk_size=10000):
     import csv
@@ -292,41 +112,35 @@ def build_list_file(read_chunk_size=10000):
         for row in corpus_list:
             writer.writerow([row])
 
+def read_text_list_file(file_path):
+    import csv
+    res = []
+    with open(file_path, 'r', newline='') as file:
+        reader = csv.reader(file)
+        for row in reader:
+            res.append(row[0])
+    return res
 
 def build_vector_matrix_file(filename, doc_generator, corpus_length):
-    shape = (corpus_length, 300)  # Example: 1 million rows, 10 columns
+    shape = (corpus_length, 300)
     dtype = np.float32
-
     # create a new memory-mapped array
     mmap_array = np.memmap(filename, dtype=dtype, mode='w+', shape=shape)
-
     # stream data one vector at a time
     i = 0
     for doc in doc_generator: 
         mmap_array[i:i+1] = doc.vector
         i += 1
-
     # write changes to disk
     mmap_array.flush()
 
 def read_vector_matrix_file(filename, shape):
     return np.memmap(filename, dtype=np.float32, mode='r', shape=shape)
 
-
-def batch_generator_to_list(generator, batch_size):
-    import itertools
-    while True:
-        batch = list(itertools.islice(generator, batch_size))
-        if not batch:
-            break
-        yield batch
-
-
 def slice_vector_matrix(mat, num_slices):
     if num_slices < 2:
         print('You must select at least 2 slices.')
         return
-    
     res = []
     slice_l = len(mat)//num_slices
     start = 0
@@ -335,18 +149,10 @@ def slice_vector_matrix(mat, num_slices):
         res.append(mat[start:end])
         start += slice_l
         end += slice_l
-
     return res
 
 
-
-def main():
-    #language_system_setup()
-    pass
-
-
 if __name__ == '__main__':
-    #main()
 
     import time
     import spacy
@@ -355,46 +161,24 @@ if __name__ == '__main__':
 
     nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
 
-    output_dir = './embeddings'
+    # if necessary, builds cachefiles of corpus data and embeddings
+    build_corpus(nlp=nlp, num_corpus_lines=-1, overwrite=False)
 
-    corpus_tuple = build_corpus(nlp=nlp, num_corpus_lines=-1, overwrite=False)
-
-    # for my laptop, 4 procs concurrently is blazing fast, and fewer slows down considerably
-    #corpus_with_embeddings = build_embeddings(nlp=nlp, corpus=None, num_corpus_lines=10000, n_process=4, 
-    #                           save=False, output_dir=output_dir, overwrite=False)
-
-    #save_corpus(corpus_with_embeddings, save_as='text list', output_dir='./embeddings')
-    #save_corpus(corpus_with_embeddings, save_as='vector matrix', output_dir='./embeddings')
-
-    corpus_list = corpus_tuple[0]
-    vector_matrix = read_vector_matrix_file(filename='large_data.npy',shape=(10366696, 300)) #corpus_tuple[1]
-
-    # create embedding matrix
-    # print(f'Creating embedding matrix for calculation...')
-    # start_time = time.perf_counter()
-    # corpus_list = list(corpus_embeddings)
-    # doc_vectors = [doc.vector for doc in corpus_list]
-    # vector_matrix = np.stack(doc_vectors)
-    # end_time = time.perf_counter()
-    # print(f'Creating matrix took {end_time - start_time} seconds')
-
-    # np.save('corpus_embedding_matrix.npy', vector_matrix)
-
-    #loaded_matrix = np.load('corpus_embedding_matrix.npy')
-    #print(loaded_matrix)
+    # now the files exist, so load
+    corpus_list = read_text_list_file(file_path='corpus_text_list.csv')
+    vector_matrix = read_vector_matrix_file(filename='corpus_embedding_matrix.npy',shape=(10366692, 300)) 
 
      # get user target_phrase
-    target_phrase = 'nomen mihi est cloelia' #'Urbis in Monte Tarpeio'
+    target_phrase = 'nomen mihi est cloelia' 
     target_doc = nlp.make_doc(target_phrase)
 
-    # calculate distance from target to each row of corpus in one go, efficiently
+    # calculate distance from target to each row of corpus without holding the whole embedding matrix in memory
     print(f'Calculating distances for {len(corpus_list)} rows...')
     start_time = time.perf_counter()
     sim_list = []
     for slice in slice_vector_matrix(vector_matrix, 12):
         sim_list.extend(cosine_similarity(target_doc.vector.reshape(1,-1), slice))
     corpus_similarities = np.concatenate(sim_list)
-    #corpus_similarities = cosine_similarity(target_doc.vector.reshape(1,-1), vector_matrix)
     end_time = time.perf_counter()
     print(f'Calculation took {end_time - start_time} seconds')
 
