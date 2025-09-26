@@ -69,7 +69,7 @@ def build_embedding_generator(nlp=None, num_corpus_lines=100, n_process=1):
     import json
     import time
 
-    print(f'BUILDING EMBEDDING GENERATOR')
+    print(f'BUILDING EMBEDDING GENERATOR...')
     if not nlp:
         # load latincy model into memory
         # when we load the model, we only want the Tok2Vec pipe in the spacy pipeline
@@ -85,7 +85,7 @@ def build_embedding_generator(nlp=None, num_corpus_lines=100, n_process=1):
 
     # convert corpus data to proper format
     l = 'all' if num_corpus_lines == -1 else num_corpus_lines
-    print(f'Converting {l} lines to SpaCy doc format (calculating embeddings)...')
+    print(f'Converting {l} lines to SpaCy doc generator...')
     start_time = time.perf_counter()
     if num_corpus_lines==-1:
         text = corpus['train']       
@@ -102,6 +102,7 @@ def build_embedding_generator(nlp=None, num_corpus_lines=100, n_process=1):
     return text_doc
 
 def build_list_file(read_chunk_size=10000):
+    print(f'BUILDING CORPUS LIST FILE...')
     import csv
     import pandas as pd
 
@@ -119,6 +120,7 @@ def build_list_file(read_chunk_size=10000):
             writer.writerow([row])
 
 def read_text_list_file(file_path=LATIN_CORPUS_LIST_FILENAME):
+    print(f'READING CORPUS LIST FILE...')
     import csv
     res = []
     with open(file_path, 'r', newline='') as file:
@@ -128,6 +130,7 @@ def read_text_list_file(file_path=LATIN_CORPUS_LIST_FILENAME):
     return res
 
 def build_vector_matrix_file(filename, doc_generator, corpus_length):
+    print(f'BUILDING EMBEDDING MATRIX FILE...')
     shape = (corpus_length, LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE[1])
     dtype = np.float32
     # create a new memory-mapped array
@@ -141,6 +144,7 @@ def build_vector_matrix_file(filename, doc_generator, corpus_length):
     mmap_array.flush()
 
 def read_vector_matrix_file(filename=LATIN_CORPUS_EMBEDDING_FILENAME, shape=LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE):
+    print(f'READING EMBEDDING MATRIX FILE...')
     return np.memmap(filename, dtype=np.float32, mode='r', shape=shape)
 
 def slice_vector_matrix(mat, num_slices):
@@ -194,5 +198,29 @@ if __name__ == '__main__':
     sorted_indices = np.argsort(c2[:,0])[::-1]
 
     # display results
-    for i in sorted_indices[:10]:
-        print(c2[i], corpus_list[i])
+    num_results = 10
+    num = 0
+    res = []
+    res2 = []
+    for i in sorted_indices:
+        if num > num_results:
+            break
+        if len(res) > 0 and corpus_list[i] == res[-1]:
+            pass
+        else:
+            res.append(corpus_list[i])
+            res2.append(c2[i])
+            num += 1
+
+    for i in range(len(res)):
+        print(res2[i], res[i])
+    # num_results = 10
+    # num = 0
+    # for i in sorted_indices:
+    #     if num > num_results:
+    #         break
+    #     if i > 0 and corpus_list[i] == corpus_list[i-1]:
+    #         pass
+    #     else:
+    #         print(c2[i], corpus_list[i])
+    #         num += 1
