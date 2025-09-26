@@ -22,6 +22,12 @@ corpus_downloader.import_corpus("lat_text_latin_library")
 '''
 
 
+LATIN_CORPUS_JSON = "../latin_text_data/la.nolorem.tok.latalphabetonly.v2.json"
+LATIN_CORPUS_LIST_FILENAME = 'corpus_text_list.csv'
+LATIN_CORPUS_EMBEDDING_FILENAME = 'corpus_embedding_matrix.npy'
+LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE = (10366696, 300)
+
+
 def build_corpus(nlp=None, num_corpus_lines=-1, overwrite=False):
     import os
 
@@ -31,11 +37,11 @@ def build_corpus(nlp=None, num_corpus_lines=-1, overwrite=False):
         # build matrix
         embedding_generator = build_embedding_generator(nlp=nlp, num_corpus_lines=num_corpus_lines, n_process=4)
         
-        build_vector_matrix_file(filename='corpus_embedding_matrix.npy', doc_generator=embedding_generator, 
-                                     corpus_length=10366692)
+        build_vector_matrix_file(filename=LATIN_CORPUS_EMBEDDING_FILENAME, doc_generator=embedding_generator, 
+                                     corpus_length=LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE[0])
     else:
-        matrix_exists = os.path.exists('corpus_embedding_matrix.npy')
-        list_exists = os.path.exists('corpus_text_list.csv')
+        matrix_exists = os.path.exists(LATIN_CORPUS_EMBEDDING_FILENAME)
+        list_exists = os.path.exists(LATIN_CORPUS_LIST_FILENAME)
 
         if not list_exists:
             # build list
@@ -44,8 +50,8 @@ def build_corpus(nlp=None, num_corpus_lines=-1, overwrite=False):
             # build matrix
             embedding_generator = build_embedding_generator(nlp=nlp, num_corpus_lines=num_corpus_lines, n_process=4)
             
-            build_vector_matrix_file(filename='corpus_embedding_matrix.npy', doc_generator=embedding_generator, 
-                                     corpus_length=10366692)
+            build_vector_matrix_file(filename=LATIN_CORPUS_EMBEDDING_FILENAME, doc_generator=embedding_generator, 
+                                     corpus_length=LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE[0])
     return
 
 
@@ -72,7 +78,7 @@ def build_embedding_generator(nlp=None, num_corpus_lines=100, n_process=1):
         print('LatinCy model loaded.')
 
     print('Loading Latin corpus...')
-    with open("../latin_text_data/la.nolorem.tok.latalphabetonly.v2.json") as f:
+    with open(LATIN_CORPUS_JSON) as f:
         corpus = json.load(f)
     l = len(corpus['train']) + len(corpus['test'])
     print(f'Full corpus loaded as JSON -- train + test is {l} lines long')
@@ -99,7 +105,7 @@ def build_list_file(read_chunk_size=10000):
     import csv
     import pandas as pd
 
-    json_reader = pd.read_json("../latin_text_data/la.nolorem.tok.latalphabetonly.v2.json", lines=True, chunksize=read_chunk_size)
+    json_reader = pd.read_json(LATIN_CORPUS_JSON, lines=True, chunksize=read_chunk_size)
     all_records = []
     for chunk in json_reader:
         all_records.extend(chunk.to_dict('records'))
@@ -107,12 +113,12 @@ def build_list_file(read_chunk_size=10000):
     corpus_list = all_records[0]['train']
     corpus_list.extend(all_records[0]['test'])
 
-    with open("corpus_text_list.csv", "w", newline="") as file:
+    with open(LATIN_CORPUS_LIST_FILENAME, "w", newline="") as file:
         writer = csv.writer(file)
         for row in corpus_list:
             writer.writerow([row])
 
-def read_text_list_file(file_path):
+def read_text_list_file(file_path=LATIN_CORPUS_LIST_FILENAME):
     import csv
     res = []
     with open(file_path, 'r', newline='') as file:
@@ -122,7 +128,7 @@ def read_text_list_file(file_path):
     return res
 
 def build_vector_matrix_file(filename, doc_generator, corpus_length):
-    shape = (corpus_length, 300)
+    shape = (corpus_length, LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE[1])
     dtype = np.float32
     # create a new memory-mapped array
     mmap_array = np.memmap(filename, dtype=dtype, mode='w+', shape=shape)
@@ -134,7 +140,7 @@ def build_vector_matrix_file(filename, doc_generator, corpus_length):
     # write changes to disk
     mmap_array.flush()
 
-def read_vector_matrix_file(filename, shape):
+def read_vector_matrix_file(filename=LATIN_CORPUS_EMBEDDING_FILENAME, shape=LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE):
     return np.memmap(filename, dtype=np.float32, mode='r', shape=shape)
 
 def slice_vector_matrix(mat, num_slices):
@@ -165,8 +171,9 @@ if __name__ == '__main__':
     build_corpus(nlp=nlp, num_corpus_lines=-1, overwrite=False)
 
     # now the files exist, so load
-    corpus_list = read_text_list_file(file_path='corpus_text_list.csv')
-    vector_matrix = read_vector_matrix_file(filename='corpus_embedding_matrix.npy',shape=(10366692, 300)) 
+    corpus_list = read_text_list_file(file_path=LATIN_CORPUS_LIST_FILENAME)
+    vector_matrix = read_vector_matrix_file(filename=LATIN_CORPUS_EMBEDDING_FILENAME,
+                                            shape=LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE) #(10366692, 300)
 
      # get user target_phrase
     target_phrase = 'nomen mihi est cloelia' 
