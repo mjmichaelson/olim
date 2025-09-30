@@ -1,5 +1,8 @@
 '''
-Olim, by Matt Michaelson
+Olim v0.6
+by Matt Michaelson
+
+A tool to find what phrases in the classical corpus most closely match your Latin phrase. 
 
 LATIN MODEL
 Latin model courtesy of Patrick J. Burns, see https://spacy.io/universe/project/latincy and https://huggingface.co/latincy
@@ -27,7 +30,9 @@ LATIN_CORPUS_LIST_FILENAME = 'corpus_text_list.csv'
 LATIN_CORPUS_EMBEDDING_FILENAME = 'corpus_embedding_matrix.npy'
 LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE = (10366696, 300)
 
-
+'''
+Builds corpus files. If num_corpus_lines = -1 then it does as many as exist
+'''
 def build_corpus(nlp=None, num_corpus_lines=-1, overwrite=False):
     import os
 
@@ -177,10 +182,10 @@ if __name__ == '__main__':
     # now the files exist, so load
     corpus_list = read_text_list_file(file_path=LATIN_CORPUS_LIST_FILENAME)
     vector_matrix = read_vector_matrix_file(filename=LATIN_CORPUS_EMBEDDING_FILENAME,
-                                            shape=LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE) #(10366692, 300)
+                                            shape=LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE)
 
      # get user target_phrase
-    target_phrase = 'nomen mihi est cloelia' 
+    target_phrase = 'rem tenite verba sequentur' 
     target_doc = nlp.make_doc(target_phrase)
 
     # calculate distance from target to each row of corpus without holding the whole embedding matrix in memory
@@ -197,7 +202,7 @@ if __name__ == '__main__':
     c2 = corpus_similarities.reshape(-1,1)
     sorted_indices = np.argsort(c2[:,0])[::-1]
 
-    # display results
+    # display results, making sure to dedupe since the corpus does have duplicate phrases
     num_results = 10
     num = 0
     res = []
@@ -214,13 +219,3 @@ if __name__ == '__main__':
 
     for i in range(len(res)):
         print(res2[i], res[i])
-    # num_results = 10
-    # num = 0
-    # for i in sorted_indices:
-    #     if num > num_results:
-    #         break
-    #     if i > 0 and corpus_list[i] == corpus_list[i-1]:
-    #         pass
-    #     else:
-    #         print(c2[i], corpus_list[i])
-    #         num += 1
