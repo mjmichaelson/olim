@@ -24,6 +24,7 @@ TIME: ~23 seconds
 OUTPUT: 
 
 | Match Score | Matched Phrase |
+| -------- | -------- |
 | [0.90429866] | Vincit omnia Veritas et amor vincit omnia | 
 | [0.8986777] | omnia vincit amor virgilio omnia vincit amor et nos cedamus amori | 
 | [0.8923784] | veritas et amor omnia vincit | 
