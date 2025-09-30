@@ -46,3 +46,10 @@ From this is apparent several things about Olim results:
  * There is some metadata ('Vergilius,Georgica') unfortunately still mixed in
  * There is some English (!) mixed in, although it is rare ('keep calm and')
  * In practice it is difficult to confirm attribution of a phrase to an original document
+
+### Ideas for improvement
+Although the tool now works, it does not yet fulfill its core aim to look things up in the classical corpus. For a version 1.0:
+
+* The corpus used should be a better-constructed and better-filtered corpus of all classical latin up to a certain year, say 200 CE, or perhaps, 'up to Augustine'. 
+* It should be possible for the user to attribute matched phrases to their text of origin
+* There should be a UI, even if it is only CLI
