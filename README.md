@@ -1,10 +1,8 @@
 # olim
-2025-09-24 v0.6
-Matt Michaelson
 
-A tool to find what phrases in a corpus (eventually the classical corpus) most closely match your Latin phrase.
+2025-09-25 v0.6 by Matt Michaelson
 
-As of v0.6, it runs on a large corpus of filtered latin web data in ~25 seconds per query after corpus files are built.
+A tool to find what phrases in a corpus (eventually the classical corpus) most closely match your Latin phrase. As of v0.6, it runs on a large corpus of filtered latin web data in ~25 seconds per query (on my laptop) after corpus files are built.
 
 ### How does it work?
 
@@ -14,7 +12,7 @@ Olim uses a language model to determine a series of <a href="https://en.wikipedi
 
 ### Corpus
 Corpus is CC100 Latin courtesy of Phillip Ströbel, see Latin-only dataset here: https://huggingface.co/datasets/pstroe/cc100-latin/blob/main/README.md
-CC100 is based on https://arxiv.org/pdf/1911.02116.
+CC100 is based on https://arxiv.org/pdf/1911.02116 and ultimately derives from Common Crawl data.
 
 ### Model
 Latin model courtesy of Patrick J. Burns, see https://spacy.io/universe/project/latincy and https://huggingface.co/latincy.
