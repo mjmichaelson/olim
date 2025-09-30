@@ -2,9 +2,13 @@
 2025-09-24 v0.6
 Matt Michaelson
 
-A tool to find what phrases in the classical corpus most closely match your Latin phrase.
+A tool to find what phrases in a corpus (eventually the classical corpus) most closely match your Latin phrase.
 
-As of v0.6, it runs on the whole corpus in ~25 seconds per query after corpus files are built.
+As of v0.6, it runs on a large corpus of filtered latin web data in ~25 seconds per query after corpus files are built.
+
+### How does it work?
+
+Olim uses a language model to determine a series of <a href="https://en.wikipedia.org/wiki/Embedding_(machine_learning)">embedding vectors</a> for the corpus, one per phrase, where each phrase embedding vector is the average of the individual token vectors that make up the phrase. Then, this matrix is used to calculate the <a href="https://en.wikipedia.org/wiki/Cosine_similarity">cosine similarity</a> between the user's input phrase and each phrase in the corpus. The results are sorted and the top 10 are displayed, along with their similarity scores.
 
 ### Installation
 
@@ -20,7 +24,9 @@ LatinCy paper here: https://arxiv.org/pdf/2305.04365v1
 Here are a few example queries using Olim v0.6:
 
 INPUT: 'amor vincit omnia'
+
 TIME: ~23 seconds
+
 OUTPUT: 
 
 | Match Score | Matched Phrase |
