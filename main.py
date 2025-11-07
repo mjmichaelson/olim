@@ -149,6 +149,8 @@ def build_vector_matrix_file(filename, doc_generator, corpus_length):
     mmap_array.flush()
 
 def read_vector_matrix_file(filename=LATIN_CORPUS_EMBEDDING_FILENAME, shape=LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE):
+    import numpy as np
+    
     print(f'READING EMBEDDING MATRIX FILE...')
     return np.memmap(filename, dtype=np.float32, mode='r', shape=shape)
 
@@ -166,30 +168,12 @@ def slice_vector_matrix(mat, num_slices):
         end += slice_l
     return res
 
-
-if __name__ == '__main__':
-
+def calculate_dist_to_each_corpus_phrase(embedding_matrix, num_rows):
     import time
-    import spacy
-    import numpy as np
     from sklearn.metrics.pairwise import cosine_similarity
+    import numpy as np
 
-    nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
-
-    # if necessary, builds cachefiles of corpus data and embeddings
-    build_corpus(nlp=nlp, num_corpus_lines=-1, overwrite=False)
-
-    # now the files exist, so load
-    corpus_list = read_text_list_file(file_path=LATIN_CORPUS_LIST_FILENAME)
-    vector_matrix = read_vector_matrix_file(filename=LATIN_CORPUS_EMBEDDING_FILENAME,
-                                            shape=LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE)
-
-     # get user target_phrase
-    target_phrase = 'rem tenite verba sequentur' 
-    target_doc = nlp.make_doc(target_phrase)
-
-    # calculate distance from target to each row of corpus without holding the whole embedding matrix in memory
-    print(f'Calculating distances for {len(corpus_list)} rows...')
+    print(f'Calculating distances for {num_rows} rows...')
     start_time = time.perf_counter()
     sim_list = []
     for slice in slice_vector_matrix(vector_matrix, 12):
@@ -197,13 +181,16 @@ if __name__ == '__main__':
     corpus_similarities = np.concatenate(sim_list)
     end_time = time.perf_counter()
     print(f'Calculation took {end_time - start_time} seconds')
+    return corpus_similarities
+
+def format_and_display_results(corpus_similarities, num_results):
+    import numpy as np
 
     # get sorted indices
     c2 = corpus_similarities.reshape(-1,1)
     sorted_indices = np.argsort(c2[:,0])[::-1]
 
-    # display results, making sure to dedupe since the corpus does have duplicate phrases
-    num_results = 10
+    # collect results, making sure to dedupe since the corpus does have duplicate phrases
     num = 0
     res = []
     res2 = []
@@ -217,5 +204,32 @@ if __name__ == '__main__':
             res2.append(c2[i])
             num += 1
 
+    # display results to stout
     for i in range(len(res)):
         print(res2[i], res[i])
+
+
+if __name__ == '__main__':
+
+    import time
+    import spacy
+
+    nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
+
+    # if necessary, builds cachefiles of corpus data and embeddings
+    build_corpus(nlp=nlp, num_corpus_lines=-1, overwrite=False)
+
+    # now the files exist, so load
+    corpus_list = read_text_list_file(file_path=LATIN_CORPUS_LIST_FILENAME)
+    vector_matrix = read_vector_matrix_file(filename=LATIN_CORPUS_EMBEDDING_FILENAME,
+                                            shape=LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE)
+
+     # get user target_phrase
+    target_phrase = 'rem tene verba sequentur'
+    target_doc = nlp.make_doc(target_phrase)
+
+    # calculate distance from target to each row of corpus without holding the whole embedding matrix in memory
+    corpus_similarities = calculate_dist_to_each_corpus_phrase(vector_matrix, len(corpus_list))
+
+    # display results
+    format_and_display_results(corpus_similarities, 10)

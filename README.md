@@ -2,11 +2,13 @@
 
 2025-09-25 v0.6 by Matt Michaelson
 
-A tool to find what phrases in a corpus (eventually the classical corpus) most closely match your Latin phrase. As of v0.6, it runs on a large corpus of filtered latin web data in ~25 seconds per query (on my laptop) after corpus files are built.
+A tool to find what phrases in a corpus (eventually the classical corpus) most closely match your Latin phrase. As of v0.6, it runs  on a large corpus of filtered latin web data in ~25 seconds per query (on my laptop CPU) after corpus files are built.
 
 ### How does it work?
 
-Olim uses a language model to determine a series of <a href="https://en.wikipedia.org/wiki/Embedding_(machine_learning)">embedding vectors</a> for the corpus, one per phrase, where each phrase embedding vector is the average of the individual token vectors that make up the phrase. Then, this matrix is used to calculate the <a href="https://en.wikipedia.org/wiki/Cosine_similarity">cosine similarity</a> between the user's input phrase and each phrase in the corpus. The results are sorted and the top 10 are displayed, along with their similarity scores.
+Olim is exhaustive KNN semantic search based on cosine similarity. It uses a language model to determine a series of <a href="https://en.wikipedia.org/wiki/Embedding_(machine_learning)">embedding vectors</a> for the corpus, one per phrase, where each phrase embedding vector is the average of the individual token vectors that make up the phrase. Then, this matrix is used to calculate the <a href="https://en.wikipedia.org/wiki/Cosine_similarity">cosine similarity</a> between the user's input phrase and each phrase in the corpus. The results are sorted and by default the top 10 are displayed, along with their similarity scores.
+
+Search is exhaustive and deterministic, so limitations of result are either the fault of the data or of the language model.
 
 ### Installation
 
@@ -45,7 +47,7 @@ From this is apparent several things about Olim results:
  * The data contains many phrases that are similar to each other
  * There is some metadata ('Vergilius,Georgica') unfortunately still mixed in
  * There is some English (!) mixed in, although it is rare ('keep calm and')
- * In practice it is difficult to confirm attribution of a phrase to an original document
+ * In practice it is difficult or impossible to confirm attribution of a phrase to an original document
 
 ### Ideas for improvement
 Although the tool now works, it does not yet fulfill its core aim to look things up in the classical corpus. For a version 1.0:
