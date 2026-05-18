@@ -8,7 +8,7 @@ LATIN MODEL
 Latin model courtesy of Patrick J. Burns, see https://spacy.io/universe/project/latincy and https://huggingface.co/latincy
 LatinCy paper here: https://arxiv.org/pdf/2305.04365v1
 
-!pip install https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-any-py3-none-any.whl
+!pip install https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-3.9.0-py3-none-any.whl
 
 LATIN CORPUS
 Corpus is CC100 Latin https://arxiv.org/pdf/1911.02116 , Latin-only dataset here: https://huggingface.co/datasets/pstroe/cc100-latin/blob/main/README.md
@@ -79,7 +79,14 @@ def build_embedding_generator(nlp=None, num_corpus_lines=100, n_process=1):
         # load latincy model into memory
         # when we load the model, we only want the Tok2Vec pipe in the spacy pipeline
         print('No nlp model provided. Loading latinCy model...')
-        nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
+        try:
+            nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
+        except OSError:
+            print('No spacy language model found, so downloading. Only need to once!')
+            from spacy.cli import download
+            download('la_core_web_lg')
+            nlp = spacy.load("la_core_web_lg", enable=["tok2vec"])
+
         print('LatinCy model loaded.')
 
     print('Loading Latin corpus...')
@@ -135,6 +142,7 @@ def read_text_list_file(file_path=LATIN_CORPUS_LIST_FILENAME):
     return res
 
 def build_vector_matrix_file(filename, doc_generator, corpus_length):
+    import numpy as np
     print(f'BUILDING EMBEDDING MATRIX FILE...')
     shape = (corpus_length, LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE[1])
     dtype = np.float32
@@ -198,15 +206,16 @@ def format_and_display_results(corpus_similarities, num_results):
         if num > num_results:
             break
         if len(res) > 0 and corpus_list[i] == res[-1]:
+            # don't add dupes
             pass
         else:
-            res.append(corpus_list[i])
-            res2.append(c2[i])
+            res.append(corpus_list[i]) #index
+            res2.append(c2[i]) #result
             num += 1
 
     # display results to stout
     for i in range(len(res)):
-        print(res2[i], res[i])
+        print(f'{res2[i]}: {res[i]}')
 
 
 if __name__ == '__main__':

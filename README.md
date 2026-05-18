@@ -11,6 +11,12 @@ Olim is exhaustive KNN semantic search based on cosine similarity. It uses a lan
 Search is exhaustive and deterministic, so limitations of result are either the fault of the data or of the language model.
 
 ### Installation
+To build the entire system, it is necessary to install two special dependencies: the spaCy language model, and the raw corpus.
+LATIN MODEL
+!pip install https://huggingface.co/latincy/la_core_web_lg/resolve/main/la_core_web_lg-3.9.0-py3-none-any.whl
+
+LATIN CORPUS
+!curl -O -L https://huggingface.co/datasets/pstroe/cc100-latin/resolve/main/la.nolorem.tok.latalphabetonly.v2.json
 
 ### Corpus
 Corpus is CC100 Latin courtesy of Phillip Ströbel, see Latin-only dataset here: https://huggingface.co/datasets/pstroe/cc100-latin/blob/main/README.md
