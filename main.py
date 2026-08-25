@@ -53,7 +53,7 @@ def build_corpus(nlp=None, num_corpus_lines=-1, overwrite=False):
             build_list_file()
         if not matrix_exists:
             # build matrix
-            embedding_generator = build_embedding_generator(nlp=nlp, num_corpus_lines=num_corpus_lines, n_process=4)
+            embedding_generator = build_embedding_generator(nlp=nlp, num_corpus_lines=num_corpus_lines, n_process=1)
             
             build_vector_matrix_file(filename=LATIN_CORPUS_EMBEDDING_FILENAME, doc_generator=embedding_generator, 
                                      corpus_length=LATIN_CORPUS_EMBEDDING_MATRIX_SHAPE[0])
